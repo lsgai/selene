@@ -1,11 +1,11 @@
 ---
 ops: [train, evaluate]
 model: {
-    path: /local/datdb/selene/manuscript/case2/deeper_deepsea_arch.py,
-    class: DeeperDeepSEA,
-    class_args: {  # DeeperDeepSEA.__init__ inputs
+    path: /local/datdb/selene/models/danQ.py,
+    class: DanQ,
+    class_args: {  # DanQ.__init__ inputs
         sequence_length: 1000,
-        n_targets: 919
+        n_genomic_features: 919
     },
     non_strand_specific: mean
 }
@@ -43,17 +43,20 @@ sampler: !obj:selene_sdk.samplers.MultiFileSampler {
     }
 }
 train_model: !obj:selene_sdk.TrainModel {
-    batch_size: 64,
-    max_steps: 960000, 
-    report_stats_every_n_steps: 64000,
+    batch_size: 128,
+    max_steps: 320000, 
+    report_stats_every_n_steps: 32000,
     n_validation_samples: 8000,  # matches the number of samples in `valid.mat`
     n_test_samples: 455024,  # matches the number of samples in `test.mat`
     use_cuda: True,
     data_parallel: True,
     report_gt_feature_n_positives: 50,
-    logging_verbosity: 2
+    logging_verbosity: 2,
+    checkpoint_resume: /local/datdb/selene/manuscript/case2/mat_training_outputs_danQ_0.001,
+
 }
-output_dir: /local/datdb/selene/manuscript/case2/mat_training_outputs
+output_dir: /local/datdb/selene/manuscript/case2/mat_training_outputs_danQ_0.001
 random_seed: 1447
 create_subdirectory: False
+lr: 0.001
 ...
