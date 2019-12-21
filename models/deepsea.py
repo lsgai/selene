@@ -56,7 +56,7 @@ class DeepSEA(nn.Module):
         out = self.conv_net(x)
         reshape_out = out.view(out.size(0), 960 * self.n_channels)
         predict = self.classifier(reshape_out)
-        return predict
+        return predict ## torch.Size([64, 919]) batch x label
 
 def criterion():
     """

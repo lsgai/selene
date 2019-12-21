@@ -240,7 +240,7 @@ class BertModel2Emb(BertPreTrainedModel):
 
     ## need to split the @input_ids into AA side and label side, @input_ids_aa @label_index_id
 
-    ## COMMENT if @x is already 1-hot embedding, we can just use it.
+    ## COMMENT
     embedding_output = self.embeddings(input_ids_aa, position_ids=position_ids, token_type_ids=token_type_ids)
     embedding_output_label = self.embeddings_label(label_index_id, position_ids=None, token_type_ids=None)
 
@@ -249,10 +249,8 @@ class BertModel2Emb(BertPreTrainedModel):
       ## masking may vary, because some proteins don't have vec emb
       embedding_output = torch.cat([input_ids,embedding_output,embedding_output_label], dim=1) ## we add protein_vector as variable @input_ids
     else:
-      ## COMMENT @input_ids_aa should probably be changed later
+      ## COMMENT
       embedding_output = torch.cat([embedding_output,embedding_output_label], dim=1) ## @embedding_output is batch x num_aa x dim so append @embedding_output_label to dim=1 (basically adding more words to @embedding_output)
-      print ('embedding_output')
-      print (embedding_output.shape)
 
     # @embedding_output is just some type of embedding, the @encoder will apply attention weights
     encoder_outputs = self.encoder(embedding_output,
@@ -279,6 +277,7 @@ class TokenClassificationBase (BertPreTrainedModel):
 
     super(TokenClassificationBase, self).__init__(self.config)
 
+    self.sequence_length = sequence_length
     self.num_labels = n_genomic_features ## about 919 for histone marks
 
     self.bert = BertModel2Emb(self.config)
@@ -289,64 +288,32 @@ class TokenClassificationBase (BertPreTrainedModel):
 
     self.init_weights() # https://github.com/lonePatient/Bert-Multi-Label-Text-Classification/issues/19
 
-    ## all batch has same length. so we can determine a lot of varibles and define them once.
-    self.label_range = torch.LongTensor ( np.arange(self.num_labels) ).unsqueeze(0).cuda() ## 1 x num_label
-    self.attention_mask_label = torch.LongTensor ( np.concatenate ( (np.zeros(sequence_length),np.ones(self.num_labels)) ) ).unsqueeze(0).cuda() ## 1 x seq_len + num_label
+    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    self.label_range = torch.LongTensor ( np.arange(self.num_labels) ).unsqueeze(0).to(self.device) ## 1 x num_label
 
   def forward(self, x):
     ## COMMENT: must take only x=batch x 4 x 1000 because @selene pipeline requires only this input
+    ## default @x is DNA + label --> so it is already an embedding
 
     ## COMMENT convert @x into word-indexing style. so we want @x = [[1,1,2,2,...], [3,3,4,4,...]] --> batch x seq_len
 
+    x = x.cpu().data.numpy()
     real_batch_size = x.shape[0]
-    print ('see x before')
-    print (x[0])
-    x = np.reshape(np.where(x==1)[1], (real_batch_size,1000)) ## get back normal indexing 
+    x = torch.LongTensor ( np.reshape(np.where(x==1)[1], (real_batch_size,1000)) ).to(self.device) ## get back normal indexing
 
-    print ('see x after')
-    print (x.shape)
-    print (x[0])
-    
-    ## trick: input_ids=None so we keep same consistency
-    ## default @x is DNA + label --> so it is already an embedding
     ## @label_index_id can be determined ahead of time
-
     label_index_id = self.label_range.expand(real_batch_size,-1) ## batch x num_label ... 1 row for 1 ob in batch
-    attention_mask_label = self.attention_mask_label.expand(real_batch_size,-1)
 
-    ## COMMENT use @x as a fixed embedding
-    outputs = self.bert(None, x, label_index_id, position_ids=None, token_type_ids=None)
+    ## COMMENT use @x
+    outputs = self.bert(None, x, label_index_id, position_ids=None, token_type_ids=None) ## trick: input_ids=None so we keep same consistency
 
-    sequence_output = outputs[0] ## last layer. ## last layer outputs is batch_num x len_sent x dim
+    sequence_output = outputs[0][:,self.sequence_length::,:] ## last layer. ## last layer outputs is batch_num x len_sent x dim
     sequence_output = self.dropout(sequence_output)
 
-    print ('outputs')
-    print (outputs[0].shape)
+    logits = self.classifier(sequence_output).squeeze(2) ## want batch x len x 1 --> batch x num_label
 
-    logits = self.classifier(sequence_output)
-
-    print ('logits')
-    print (logits.shape)
-
-    outputs = (logits,) + outputs[2:]  # add hidden states and attention if they are here
-
-    ## must extract only the label side (i.e. 2nd sentence)
-    ## @attention_mask is used to avoid padding in the @active_loss
-    ## so we need to only create another @attention_mask_label to pay attention to labels only
-
-    # Only keep active parts of the loss
-    if attention_mask_label is not None: ## change @attention_mask --> @attention_mask_label
-      print ('attention_mask_label')
-      print (attention_mask_label)
-      active_loss = attention_mask_label.view(-1) == 1 # attention_mask_label.view(-1) --> same as flatten
-      print (active_loss.shape)
-      print ('logits.view(-1)')
-      print (logits.view(-1).shape)
-      active_logits = logits.view(-1)[active_loss] ## remove  self.num_labels
-
-    outputs = (active_logits,) + outputs
-
-    return outputs[1]  # scores, (hidden_states), (attentions) ## remove  (loss),
+    return logits # batch x num_label
 
 
 def criterion():
