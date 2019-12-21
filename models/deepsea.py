@@ -52,6 +52,7 @@ class DeepSEA(nn.Module):
     def forward(self, x):
         """Forward propagation of a batch.
         """
+        # @x is torch.Size([64, 4, 1000]). batch x 4 nuc. x 1000
         out = self.conv_net(x)
         reshape_out = out.view(out.size(0), 960 * self.n_channels)
         predict = self.classifier(reshape_out)

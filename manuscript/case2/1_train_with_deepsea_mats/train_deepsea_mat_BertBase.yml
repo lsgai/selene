@@ -1,9 +1,10 @@
 ---
 ops: [train, evaluate]
 model: {
-    path: /local/datdb/selene/models/danQ.py,
-    class: DanQ,
-    class_args: {  # DanQ.__init__ inputs
+    path: /local/datdb/selene/models/transformer/transformer.py,
+    class: TokenClassificationBase,
+    class_args: {  # TokenClassificationBase.__init__ inputs
+        config_name: /local/datdb/selene/manuscript/case2/mat_training_outputs_BertBase/config.json,
         sequence_length: 1000,
         n_genomic_features: 919
     },
@@ -43,18 +44,17 @@ sampler: !obj:selene_sdk.samplers.MultiFileSampler {
     }
 }
 train_model: !obj:selene_sdk.TrainModel {
-    batch_size: 128,
-    max_steps: 320000, 
-    report_stats_every_n_steps: 32000,
+    batch_size: 16,
+    max_steps: 960000, 
+    report_stats_every_n_steps: 64000,
     n_validation_samples: 8000,  # matches the number of samples in `valid.mat`
     n_test_samples: 455024,  # matches the number of samples in `test.mat`
     use_cuda: True,
     data_parallel: True,
     report_gt_feature_n_positives: 50,
     logging_verbosity: 2
-    # checkpoint_resume: /local/datdb/selene/manuscript/case2/mat_training_outputs_danQ/best_model.pth.tar ## we load the model trained at 0.0001 to save time
 }
-output_dir: /local/datdb/selene/manuscript/case2/mat_training_outputs_danQ_0.001
+output_dir: /local/datdb/selene/manuscript/case2/mat_training_outputs
 random_seed: 1447
 create_subdirectory: False
 ...
