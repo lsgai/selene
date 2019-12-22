@@ -108,6 +108,8 @@ class BertEmbeddingsLabel(nn.Module):
     ## should always drop to avoid overfit
     embeddings = self.dropout(embeddings)
 
+    self.dropout( ( self.LayerNorm(self.word_embeddings.weight) )
+
     return embeddings
 
 
@@ -198,7 +200,7 @@ class BertModel2Emb(BertPreTrainedModel):
 
     return model_embeds
 
-  def forward(self, input_ids, input_ids_aa, label_index_id, attention_mask=None, token_type_ids=None, position_ids=None, head_mask=None):
+  def forward(self, input_ids, input_DNA, label_index_id, attention_mask=None, token_type_ids=None, position_ids=None, head_mask=None):
 
     ##!! to avoid a lot of re-structuring, let's define @input_ids=>protein_vector from interaction network
     ## assume @input_ids is batch x 1 x dim, each batch is a protein so it has 1 vector
@@ -238,10 +240,10 @@ class BertModel2Emb(BertPreTrainedModel):
     else:
       head_mask = [None] * self.config.num_hidden_layers
 
-    ## need to split the @input_ids into AA side and label side, @input_ids_aa @label_index_id
+    ## need to split the @input_ids into AA side and label side, @input_DNA @label_index_id
 
     ## COMMENT
-    embedding_output = self.embeddings(input_ids_aa, position_ids=position_ids, token_type_ids=token_type_ids)
+    embedding_output = self.embeddings(input_DNA, position_ids=position_ids, token_type_ids=token_type_ids)
     embedding_output_label = self.embeddings_label(label_index_id, position_ids=None, token_type_ids=None)
 
     # concat into the original embedding
@@ -258,9 +260,9 @@ class BertModel2Emb(BertPreTrainedModel):
                                    head_mask=head_mask)
 
     sequence_output = encoder_outputs[0]
-    pooled_output = self.pooler(sequence_output)
+    # pooled_output = self.pooler(sequence_output)
 
-    outputs = (sequence_output, pooled_output,) + encoder_outputs[1:]  # add hidden_states and attentions if they are here
+    outputs = (sequence_output,) + encoder_outputs[1:]  # add hidden_states and attentions if they are here pooled_output
     return outputs  # sequence_output, pooled_output, (hidden_states), (attentions)
 
 
@@ -289,7 +291,8 @@ class TokenClassificationBase (BertPreTrainedModel):
     self.init_weights() # https://github.com/lonePatient/Bert-Multi-Label-Text-Classification/issues/19
 
     self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+  
+    ## COMMENT 
     self.label_range = torch.LongTensor ( np.arange(self.num_labels) ).unsqueeze(0).to(self.device) ## 1 x num_label
 
   def forward(self, x):

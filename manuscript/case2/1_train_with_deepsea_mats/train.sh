@@ -18,4 +18,4 @@ cd /local/datdb/selene/manuscript/case2/1_train_with_deepsea_mats
 CUDA_VISIBLE_DEVICES=1 python3 -u ../../../selene_cli.py train_deepsea_mat_deepsea2015.yml --lr 0.08 > train_deepsea2017debug.log 
 
 cd /local/datdb/selene/manuscript/case2/1_train_with_deepsea_mats
-CUDA_VISIBLE_DEVICES=1 python3 -u ../../../selene_cli.py train_deepsea_mat_BertBase.yml --lr 0.0001 > train_BertBase.log 
+CUDA_VISIBLE_DEVICES=1,2 python3 -u ../../../selene_cli.py train_deepsea_mat_BertBase.yml --lr 0.0001 > train_BertBase.log 
