@@ -111,6 +111,8 @@ class BertEmbeddingsLabel(nn.Module):
     embeddings = self.dropout(embeddings)
 
 
+    HELLOOOOO
+
     #self.dropout( self.LayerNorm(self.word_embeddings.weight) ) # only need this, not indexing word_embeddings
 
     return embeddings
