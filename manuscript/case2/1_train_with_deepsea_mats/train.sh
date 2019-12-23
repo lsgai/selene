@@ -21,7 +21,3 @@ cd /local/datdb/selene/manuscript/case2/1_train_with_deepsea_mats
 CUDA_VISIBLE_DEVICES=1,2 python3 -u ../../../selene_cli.py train_deepsea_mat_BertBase.yml --lr 0.0001 > train_BertBase.log
 
 
-HELLOOOOO2
-
-
-CONFLICT
