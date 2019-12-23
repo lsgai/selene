@@ -1,13 +1,13 @@
 """
 This module provides the `MatFileSampler` class and its supporting
-methods.
+methods. Modified to index instead of one-hot
 """
 import h5py
 import numpy as np
 import scipy.io
 
-from .file_sampler import FileSampler
-
+#from .file_sampler import FileSampler
+from selene_sdk.samplers.file_samplers.file_sampler import FileSampler
 
 def _load_mat_file(filepath, sequence_key, targets_key=None):
     """
@@ -84,8 +84,7 @@ class MatFileSampler(FileSampler):
                  shuffle=True,
                  sequence_batch_axis=0,
                  sequence_alphabet_axis=1,
-                 targets_batch_axis=0,
-                 convert_to_index=0):
+                 targets_batch_axis=0):
         """
         Constructs a new `MatFileSampler` object.
         """
@@ -114,9 +113,8 @@ class MatFileSampler(FileSampler):
         if self._shuffle:
             np.random.shuffle(self._sample_indices)
 
-        self._convert_to_index = convert_to_index
 
-    def sample(self, batch_size=1):
+    def sample(self, batch_size=1, convert2index=True):
         """
         Draws a mini-batch of examples and their corresponding
         labels.
@@ -163,9 +161,14 @@ class MatFileSampler(FileSampler):
                             self._seq_final_axis,
                             self._seq_alphabet_axis))
 
-        if self._convert_to_index:
-            # convert one-hot to index, where last axis is alphabet
+        if convert2index:
+            print('TODO sequences')
+            print(sequences.shape)
+            print(sequences[0][0:3])
+            # convert one-hot to index, where last axis is one-hot
             sequences = np.argmax(sequences, axis=-1)
+            print(sequences.shape)
+            print(sequences[0][0:3])
 
         if self._sample_tgts is not None:
             if self._tgts_batch_axis == 0:

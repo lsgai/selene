@@ -97,7 +97,9 @@ class BertEmbeddingsLabel(nn.Module):
     # if token_type_ids is None:
     #   token_type_ids = torch.zeros_like(input_ids)
 
-    embeddings = self.word_embeddings(input_ids)
+    # lg: took this line out since we always predict on fixed labels
+    ##embeddings = self.word_embeddings(input_ids)
+    embeddings = self.word_embeddings.weight
     # position_embeddings = self.position_embeddings(position_ids)
     # token_type_embeddings = self.token_type_embeddings(token_type_ids)
 
@@ -108,7 +110,8 @@ class BertEmbeddingsLabel(nn.Module):
     ## should always drop to avoid overfit
     embeddings = self.dropout(embeddings)
 
-    self.dropout( ( self.LayerNorm(self.word_embeddings.weight) )
+
+    #self.dropout( self.LayerNorm(self.word_embeddings.weight) ) # only need this, not indexing word_embeddings
 
     return embeddings
 
@@ -292,7 +295,7 @@ class TokenClassificationBase (BertPreTrainedModel):
 
     self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
   
-    ## COMMENT 
+    ## COMMENT TODO append 0-918 for label_range for each input
     self.label_range = torch.LongTensor ( np.arange(self.num_labels) ).unsqueeze(0).to(self.device) ## 1 x num_label
 
   def forward(self, x):
@@ -301,9 +304,10 @@ class TokenClassificationBase (BertPreTrainedModel):
 
     ## COMMENT convert @x into word-indexing style. so we want @x = [[1,1,2,2,...], [3,3,4,4,...]] --> batch x seq_len
 
-    x = x.cpu().data.numpy()
-    real_batch_size = x.shape[0]
-    x = torch.LongTensor ( np.reshape(np.where(x==1)[1], (real_batch_size,1000)) ).to(self.device) ## get back normal indexing
+    real_batch_size = x.cpu().data.numpy().shape[0]
+    #x = x.cpu().data.numpy()
+    #real_batch_size = x.shape[0]
+    #x = torch.LongTensor ( np.reshape(np.where(x==1)[1], (real_batch_size,1000)) ).to(self.device) ## get back normal indexing
 
     ## @label_index_id can be determined ahead of time
     label_index_id = self.label_range.expand(real_batch_size,-1) ## batch x num_label ... 1 row for 1 ob in batch
