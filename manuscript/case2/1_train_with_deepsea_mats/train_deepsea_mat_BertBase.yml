@@ -1,10 +1,10 @@
 ---
 ops: [train, evaluate]
 model: {
-    path: /local/datdb/selene/models/transformer/transformer.py,
+    path: /local/lgai/selene/models/transformer/transformer.py,
     class: TokenClassificationBase,
     class_args: {  # TokenClassificationBase.__init__ inputs
-        config_name: /local/datdb/selene/manuscript/case2/mat_training_outputs_BertBase/config.json,
+        config_name: /local/lgai/selene/manuscript/case2/mat_training_outputs_BertBase/config.json,
         sequence_length: 1000,
         n_genomic_features: 919
     },
@@ -12,35 +12,38 @@ model: {
 }
 sampler: !obj:selene_sdk.samplers.MultiFileSampler {
     train_sampler: !obj:selene_sdk.samplers.file_samplers.MatFileSampler {
-        filepath: /local/datdb/selene/manuscript/case2/1_train_with_deepsea_mats/data/train.mat,
+        filepath: /local/lgai/selene/manuscript/case2/1_train_with_deepsea_mats/data/train.mat,
         sequence_key: trainxdata,
         targets_key: traindata,
         sequence_batch_axis: 2,
         sequence_alphabet_axis: 1,
         targets_batch_axis: 1,
         shuffle: True,
-        random_seed: 12
+        random_seed: 12,
+        convert_to_index: True
     },
     validate_sampler: !obj:selene_sdk.samplers.file_samplers.MatFileSampler {
-        filepath: /local/datdb/selene/manuscript/case2/1_train_with_deepsea_mats/data/valid.mat,
+        filepath: /local/lgai/selene/manuscript/case2/1_train_with_deepsea_mats/data/valid.mat,
         sequence_key: validxdata,
         targets_key: validdata,
         sequence_batch_axis: 0,
         sequence_alphabet_axis: 1,
         targets_batch_axis: 0,
-        shuffle: False
+        shuffle: False,
+        convert_to_index: True
     },
     test_sampler: !obj:selene_sdk.samplers.file_samplers.MatFileSampler {
-        filepath: /local/datdb/selene/manuscript/case2/1_train_with_deepsea_mats/data/test.mat,
+        filepath: /local/lgai/selene/manuscript/case2/1_train_with_deepsea_mats/data/test.mat,
         sequence_key: testxdata,
         targets_key: testdata,
         sequence_batch_axis: 0,
         sequence_alphabet_axis: 1,
         targets_batch_axis: 0,
-        shuffle: False
+        shuffle: False,
+        convert_to_index: True
     },
     features: !obj:selene_sdk.utils.load_features_list {
-        input_path: /local/datdb/selene/manuscript/case2/1_train_with_deepsea_mats/data/deepsea_predictor.names
+        input_path: /local/lgai/selene/manuscript/case2/1_train_with_deepsea_mats/data/deepsea_predictor.names
     }
 }
 train_model: !obj:selene_sdk.TrainModel {
@@ -54,7 +57,7 @@ train_model: !obj:selene_sdk.TrainModel {
     report_gt_feature_n_positives: 50,
     logging_verbosity: 2
 }
-output_dir: /local/datdb/selene/manuscript/case2/mat_training_outputs
+output_dir: /local/lgai/selene/manuscript/case2/mat_training_outputs
 random_seed: 1447
 create_subdirectory: False
 ...
