@@ -22,3 +22,6 @@ CUDA_VISIBLE_DEVICES=1,2 python3 -u ../../../selene_cli.py train_deepsea_mat_Ber
 
 
 HELLOOOOO2
+
+
+CONFLICT 
