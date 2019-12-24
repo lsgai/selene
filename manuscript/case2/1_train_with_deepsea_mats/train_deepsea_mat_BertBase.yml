@@ -8,7 +8,8 @@ model: {
         sequence_length: 1000,
         n_genomic_features: 919
     },
-    non_strand_specific: mean
+    non_strand_specific: mean,
+    input_format: index
 }
 sampler: !obj:selene_sdk.samplers.MultiFileSampler {
     train_sampler: !obj:selene_sdk.samplers.file_samplers.MatFileSampler {
