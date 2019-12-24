@@ -45,10 +45,11 @@ class NonStrandSpecific(Module):
         The user-specified model architecture.
     mode : {'mean', 'max'}
         How to handle outputting a non-strand specific prediction.
-
+    input_format : {'onehot', 'index'}
+        Whether sequence is one-hot encoded or integer indices
     """
 
-    def __init__(self, model, mode="mean"):
+    def __init__(self, model, mode="mean", input_format="onehot"):
         super(NonStrandSpecific, self).__init__()
 
         self.model = model
@@ -57,14 +58,25 @@ class NonStrandSpecific(Module):
             raise ValueError("Mode should be one of 'mean' or 'max' but was"
                              "{0}.".format(mode))
         self.mode = mode
+        self.input_format = input_format
         self.from_lua = _is_lua_trained_model(model)
 
     def forward(self, input):
         reverse_input = None
-        if self.from_lua:
+        if self.input_format == "index":
+            # one-hot is in ACGT = 0123 order (or some other order such that 0,3 and 1,2 are complement)
+            reverse_input = torch.empty_like(input)
+            # put 4 wherever input has 0, etc.
+            reverse_input[input==0]=4;reverse_input[input==4]=0;
+            reverse_input[input==2]=3;reverse_input[input==3]=2;
+            # then reverse each sample
+            reverse_input = _flip(reverse_input,1)
+
+        elif self.from_lua: 
             reverse_input = _flip(
                 _flip(torch.squeeze(input, 2), 1), 2).unsqueeze_(2)
-        else:
+            reverse_input = _flip(_flip(input, 1), 2)
+        else: # otherwise input shape is (batch,4,1000)
             reverse_input = _flip(_flip(input, 1), 2)
 
         output = self.model.forward(input)

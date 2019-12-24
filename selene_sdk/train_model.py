@@ -448,11 +448,14 @@ class TrainModel(object):
 
         """
         self.model.train()
-        self.sampler.set_mode("train")
+        self.sampler.set_mode("train") 
+        # sampler is a MultiFileSampler, which contains train and valid samplers, and optionally a test sampler
 
         inputs, targets = self._get_batch()
         inputs = torch.Tensor(inputs)
         targets = torch.Tensor(targets)
+
+        print(('TODOtypes',inputs.type, inputs.shape, targets.type))
 
         if self.use_cuda:
             inputs = inputs.cuda()
@@ -460,8 +463,11 @@ class TrainModel(object):
 
         inputs = Variable(inputs)
         targets = Variable(targets)
+        if self.sampler._samplers["train"]._convert_to_index: # no transpose if input is 2D
+            predictions = self.model(inputs)
+        else: # if input is one-hot
+            predictions = self.model(inputs.transpose(1, 2))
 
-        predictions = self.model(inputs.transpose(1, 2))
         loss = self.criterion(predictions, targets)
 
         self.optimizer.zero_grad()
@@ -502,8 +508,11 @@ class TrainModel(object):
             with torch.no_grad():
                 inputs = Variable(inputs)
                 targets = Variable(targets)
-
-                predictions = self.model(inputs.transpose(1, 2))
+                if self.sampler._samplers["test"]._convert_to_index: # no transpose if input is 2D
+                    predictions = self.model(inputs)
+                else: # if input is one-hot
+                    predictions = self.model(inputs.transpose(1, 2))
+                
                 loss = self.criterion(predictions, targets)
 
                 all_predictions.append(

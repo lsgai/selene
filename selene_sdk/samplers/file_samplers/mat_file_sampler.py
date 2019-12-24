@@ -167,6 +167,7 @@ class MatFileSampler(FileSampler):
             # convert one-hot to index, where last axis is alphabet
             sequences = np.argmax(sequences, axis=-1)
 
+
         if self._sample_tgts is not None:
             if self._tgts_batch_axis == 0:
                 targets = self._sample_tgts[use_indices, :].astype(float)

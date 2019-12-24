@@ -117,8 +117,11 @@ def initialize_model(model_configs, train=True, lr=None):
     model = model_class(**model_configs["class_args"])
     if "non_strand_specific" in model_configs:
         from selene_sdk.utils import NonStrandSpecific
+        input_format = "onehot"
+        if "input_format" in model_configs:
+            input_format = model_configs["input_format"]
         model = NonStrandSpecific(
-            model, mode=model_configs["non_strand_specific"])
+            model, mode=model_configs["non_strand_specific"], input_format=input_format)
 
     _is_lua_trained_model(model)
     criterion = module.criterion()
