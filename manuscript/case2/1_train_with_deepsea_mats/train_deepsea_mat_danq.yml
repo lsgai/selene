@@ -43,7 +43,7 @@ sampler: !obj:selene_sdk.samplers.MultiFileSampler {
     }
 }
 train_model: !obj:selene_sdk.TrainModel {
-    batch_size: 128,
+    batch_size: 64,
     max_steps: 640000, 
     report_stats_every_n_steps: 64000,
     n_validation_samples: 8000,  # matches the number of samples in `valid.mat`
@@ -53,7 +53,7 @@ train_model: !obj:selene_sdk.TrainModel {
     report_gt_feature_n_positives: 50,
     logging_verbosity: 2
 }
-output_dir: /local/datdb/selene/manuscript/case2/mat_training_outputs_danQ
+output_dir: /local/datdb/selene/manuscript/case2/mat_training_outputs_danQ_SGD
 random_seed: 1447
 create_subdirectory: False
 ...

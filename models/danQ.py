@@ -55,4 +55,6 @@ def criterion():
     return nn.BCELoss()
 
 def get_optimizer(lr):
-    return (torch.optim.RMSprop, {"lr": lr})
+    # return (torch.optim.RMSprop, {"lr": lr}) ## COMMENT we tried this method at lr=0.0001 but did not get better result than original deepsea
+    return (torch.optim.SGD,
+            {"lr": lr, "weight_decay": 1e-6, "momentum": 0.9})

@@ -97,18 +97,21 @@ class BertEmbeddingsLabel(nn.Module):
     # if token_type_ids is None:
     #   token_type_ids = torch.zeros_like(input_ids)
 
-    embeddings = self.word_embeddings(input_ids)
+    # embeddings = self.word_embeddings(input_ids)
     # position_embeddings = self.position_embeddings(position_ids)
     # token_type_embeddings = self.token_type_embeddings(token_type_ids)
 
     # embeddings = words_embeddings # + position_embeddings + token_type_embeddings
-    if self.config.scale_label_vec:
-      embeddings = self.LayerNorm(embeddings)
+    # if self.config.scale_label_vec:
+    #   embeddings = self.LayerNorm(embeddings)
 
     ## should always drop to avoid overfit
-    embeddings = self.dropout(embeddings)
+    # embeddings = self.dropout(embeddings)
 
-    self.dropout( ( self.LayerNorm(self.word_embeddings.weight) )
+    ##!! COMMENT we always use all the labels, so that we do not need to specify label-indexing. need only call @self.word_embeddings.weight
+    embeddings = self.LayerNorm(self.word_embeddings.weight)
+    embeddings = embeddings.expand(input_ids.shape[0],-1,-1) ## batch x num_label x dim
+    embeddings = self.dropout( embeddings )
 
     return embeddings
 
@@ -291,25 +294,21 @@ class TokenClassificationBase (BertPreTrainedModel):
     self.init_weights() # https://github.com/lonePatient/Bert-Multi-Label-Text-Classification/issues/19
 
     self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-  
-    ## COMMENT 
-    self.label_range = torch.LongTensor ( np.arange(self.num_labels) ).unsqueeze(0).to(self.device) ## 1 x num_label
 
   def forward(self, x):
-    ## COMMENT: must take only x=batch x 4 x 1000 because @selene pipeline requires only this input
-    ## default @x is DNA + label --> so it is already an embedding
 
+    ##!! @x in Transformer is batch x word_indexing
+    
+    ## COMMENT: original model must take only x=batch x 4 x 1000 because @selene pipeline requires only this input
+    ## default @x is DNA + label --> so it is already an embedding
     ## COMMENT convert @x into word-indexing style. so we want @x = [[1,1,2,2,...], [3,3,4,4,...]] --> batch x seq_len
 
-    x = x.cpu().data.numpy()
-    real_batch_size = x.shape[0]
-    x = torch.LongTensor ( np.reshape(np.where(x==1)[1], (real_batch_size,1000)) ).to(self.device) ## get back normal indexing
+    ##!! @label_index_id can be determined ahead of time
+    # label_index_id = self.label_range.expand(real_batch_size,-1) ## batch x num_label ... 1 row for 1 ob in batch
 
-    ## @label_index_id can be determined ahead of time
-    label_index_id = self.label_range.expand(real_batch_size,-1) ## batch x num_label ... 1 row for 1 ob in batch
-
-    ## COMMENT use @x
-    outputs = self.bert(None, x, label_index_id, position_ids=None, token_type_ids=None) ## trick: input_ids=None so we keep same consistency
+    ## COMMENT use @x as indexing-style
+    ##!! observe that we pass in @x twice. this is a trick. 
+    outputs = self.bert(None, x, x, position_ids=None, token_type_ids=None) 
 
     sequence_output = outputs[0][:,self.sequence_length::,:] ## last layer. ## last layer outputs is batch_num x len_sent x dim
     sequence_output = self.dropout(sequence_output)
