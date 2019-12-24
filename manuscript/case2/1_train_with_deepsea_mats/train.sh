@@ -12,7 +12,7 @@ source activate selene-env
 python -u ../../../selene_cli.py ./train_deepsea_mat.yml --lr=0.08
 
 
-CUDA_VISIBLE_DEVICES=6,7 python3 -u ../../../selene_cli.py train_deepsea_mat_danq_0.001.yml --lr 0.001 > train_deepsea_mat_danq_0.001.log
+CUDA_VISIBLE_DEVICES=6,7 python3 -u ../../../selene_cli.py train_deepsea_mat_danq.yml --lr 0.08 > train_deepsea_mat_danq.log
 
 cd /local/datdb/selene/manuscript/case2/1_train_with_deepsea_mats
 CUDA_VISIBLE_DEVICES=1 python3 -u ../../../selene_cli.py train_deepsea_mat_deepsea2015.yml --lr 0.08 > train_deepsea2017debug.log
