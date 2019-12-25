@@ -135,15 +135,12 @@ class BertModel2Emb(BertPreTrainedModel):
     **attentions**: (`optional`, returned when ``config.output_attentions=True``)
       list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
       Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
-
   Examples::
-
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     model = BertModel.from_pretrained('bert-base-uncased')
     input_ids = torch.tensor(tokenizer.encode("Hello, my dog is cute")).unsqueeze(0)  # Batch size 1
     outputs = model(input_ids)
     last_hidden_states = outputs[0]  # The last hidden-state is the first element of the output tuple
-
   """
   def __init__(self, config):
     super(BertModel2Emb, self).__init__(config)
@@ -178,13 +175,10 @@ class BertModel2Emb(BertPreTrainedModel):
   def resize_label_embeddings(self, new_num_tokens=None):
     """ Resize input token embeddings matrix of the model if new_num_tokens != config.vocab_size.
     Take care of tying weights embeddings afterwards if the model class has a `tie_weights()` method.
-
     Arguments:
-
       new_num_tokens: (`optional`) int:
         New number of tokens in the embedding matrix. Increasing the size will add newly initialized vectors at the end. Reducing the size will remove vectors from the end.
         If not provided or None: does nothing and just returns a pointer to the input tokens ``torch.nn.Embeddings`` Module of the model.
-
     Return: ``torch.nn.Embeddings``
       Pointer to the input tokens Embeddings Module of the model
     """
@@ -308,6 +302,10 @@ class TokenClassificationBase (BertPreTrainedModel):
 
     ## COMMENT use @x as indexing-style
     ##!! observe that we pass in @x twice. this is a trick. 
+    print('transformerrr:')
+    print(x[0][0:10])
+    print(x.shape)
+    print(x.type)
     outputs = self.bert(None, x, x, position_ids=None, token_type_ids=None) 
 
     sequence_output = outputs[0][:,self.sequence_length::,:] ## last layer. ## last layer outputs is batch_num x len_sent x dim
@@ -323,4 +321,3 @@ def criterion():
 
 def get_optimizer(lr):
   return (torch.optim.Adam, {"lr": lr})
-

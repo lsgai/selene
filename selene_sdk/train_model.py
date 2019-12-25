@@ -452,10 +452,13 @@ class TrainModel(object):
         # sampler is a MultiFileSampler, which contains train and valid samplers, and optionally a test sampler
 
         inputs, targets = self._get_batch()
-        inputs = torch.Tensor(inputs)
-        targets = torch.Tensor(targets)
 
-        print(('TODOtypes',inputs.type, inputs.shape, targets.type))
+        if self.sampler._samplers["train"]._convert_to_index:
+            inputs = torch.tensor(inputs) # transformer expects Long, not FloatTensor
+            targets = torch.tensor(targets) # so use tensor instead of Tensor to get int
+        else:
+            inputs = torch.Tensor(inputs)
+            targets = torch.Tensor(targets)
 
         if self.use_cuda:
             inputs = inputs.cuda()
@@ -476,7 +479,7 @@ class TrainModel(object):
 
         return loss.item()
 
-    def _evaluate_on_data(self, data_in_batches):
+    def _evaluate_on_data(self, data_in_batches, useLongTensor=False):
         """
         Makes predictions for some labeled input data.
 
@@ -498,8 +501,12 @@ class TrainModel(object):
         all_predictions = []
 
         for (inputs, targets) in data_in_batches:
-            inputs = torch.Tensor(inputs)
-            targets = torch.Tensor(targets)
+            if useLongTensor:
+                inputs = torch.tensor(inputs) # if index format, don't convert to float
+                targets = torch.tensor(targets)
+            else:
+                inputs = torch.Tensor(inputs) # otherwise, FloatTensor
+                targets = torch.Tensor(targets)
 
             if self.use_cuda:
                 inputs = inputs.cuda()
@@ -535,7 +542,7 @@ class TrainModel(object):
 
         """
         average_loss, all_predictions = self._evaluate_on_data(
-            self._validation_data)
+            self._validation_data, useLongTensor=self.model._convert_to_index)
         average_scores = self._validation_metrics.update(all_predictions,
                                                          self._all_validation_targets)
         for name, score in average_scores.items():
@@ -559,7 +566,7 @@ class TrainModel(object):
         if self._test_data is None:
             self.create_test_set()
         average_loss, all_predictions = self._evaluate_on_data(
-            self._test_data)
+            self._test_data, useLongTensor=self.model._convert_to_index)
 
         average_scores = self._test_metrics.update(all_predictions,
                                                    self._all_test_targets)
