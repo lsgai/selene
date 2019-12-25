@@ -198,18 +198,11 @@ class BertModel2Emb(BertPreTrainedModel):
     return model_embeds
 
   def forward(self, input_ids, input_DNA, label_index_id, attention_mask=None, token_type_ids=None, position_ids=None, head_mask=None):
-
     ##!! to avoid a lot of re-structuring, let's define @input_ids=>protein_vector from interaction network
     ## assume @input_ids is batch x 1 x dim, each batch is a protein so it has 1 vector
-    #print('inputids')
-    #print(inputids.type)
-    #print(input_ids.shape)
-    #print(input_ids[0][0])
-    #print('inputdna')
-    #print(input_DNA.shape)
-    #print(input_DNA[0][0])
-    if attention_mask is None:
-      attention_mask = torch.ones_like(input_ids) ## probably don't need this very much. if we pass in mask and token_type, which we always do for batch mode (uncommented bc need a mask)
+
+    # if attention_mask is None:
+      # attention_mask = torch.ones_like(input_ids) ## probably don't need this very much. if we pass in mask and token_type, which we always do for batch mode 
     # # if token_type_ids is None:
     # #   token_type_ids = torch.zeros_like(input_ids)
 
@@ -233,6 +226,11 @@ class BertModel2Emb(BertPreTrainedModel):
     # attention_probs has shape bsz x n_heads x N x N
     # input head_mask has shape [num_heads] or [num_hidden_layers x num_heads]
     # and head_mask is converted to shape [num_hidden_layers x batch x num_heads x seq_length x seq_length]
+
+    #print('Bert forward')
+    #print('input_DNA')
+    #print(input_DNA)
+    #print('____')
     if head_mask is not None:
       if head_mask.dim() == 1:
         head_mask = head_mask.unsqueeze(0).unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
@@ -307,7 +305,7 @@ class TokenClassificationBase (BertPreTrainedModel):
     # label_index_id = self.label_range.expand(real_batch_size,-1) ## batch x num_label ... 1 row for 1 ob in batch
 
     ## COMMENT use @x as indexing-style
-    ##!! observe that we pass in @x twice. this is a trick. 
+    ##!! observe that we pass in @x twice. this is a trick to get batch_size. 
 
     outputs = self.bert(None, x, x, position_ids=None, token_type_ids=None) 
 
@@ -323,4 +321,5 @@ def criterion():
   return nn.BCELoss()
 
 def get_optimizer(lr):
-  return (torch.optim.Adam, {"lr": lr})
+  # adam with L2 norm
+  return (torch.optim.Adam, {"lr": lr, "weight_decay": 1e-6})

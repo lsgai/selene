@@ -67,8 +67,8 @@ class NonStrandSpecific(Module):
             # one-hot is in ACGT = 0123 order (or some other order such that 0,3 and 1,2 are complement)
             reverse_input = torch.empty_like(input)
             # put 4 wherever input has 0, etc.
-            reverse_input[input==0]=4;reverse_input[input==4]=0;
-            reverse_input[input==2]=3;reverse_input[input==3]=2;
+            reverse_input[input==0]=3;reverse_input[input==3]=0;
+            reverse_input[input==1]=2;reverse_input[input==2]=1;
             # then reverse each sample
             reverse_input = _flip(reverse_input,1)
 
@@ -79,9 +79,9 @@ class NonStrandSpecific(Module):
         else: # otherwise input shape is (batch,4,1000)
             reverse_input = _flip(_flip(input, 1), 2)
 
-        print('NonStrandSpecificcc')
-        print((input.type, input.shape, input[0][0:10]))
+        #print('Nonstrand forward')
         output = self.model.forward(input)
+        #print('Nonstrand reverse')
         output_from_rev = self.model.forward(reverse_input)
 
         if self.mode == "mean":

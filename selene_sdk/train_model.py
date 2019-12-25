@@ -454,11 +454,10 @@ class TrainModel(object):
         inputs, targets = self._get_batch()
 
         if self.sampler._samplers["train"]._convert_to_index:
-            inputs = torch.LongTensor(inputs) # transformer expects Long or other int, not FloatTensor
-            targets = torch.LongTensor(targets) 
+            inputs = torch.LongTensor(inputs) # transformer expects Long input, not FloatTensor
         else:
             inputs = torch.Tensor(inputs)
-            targets = torch.Tensor(targets)
+        targets = torch.Tensor(targets)
 
         if self.use_cuda:
             inputs = inputs.cuda()
@@ -468,6 +467,9 @@ class TrainModel(object):
         targets = Variable(targets)
         if self.sampler._samplers["train"]._convert_to_index: # no transpose if input is 2D
             predictions = self.model(inputs)
+            #print('trainpred')
+            #print(predictions.shape)
+            #print(predictions[0][:10], flush=True)
         else: # if input is one-hot
             predictions = self.model(inputs.transpose(1, 2))
 
@@ -503,10 +505,9 @@ class TrainModel(object):
         for (inputs, targets) in data_in_batches:
             if useLongTensor:
                 inputs = torch.LongTensor(inputs) # if index format, don't convert to float
-                targets = torch.LongTensor(targets)
             else:
                 inputs = torch.Tensor(inputs) # otherwise, FloatTensor
-                targets = torch.Tensor(targets)
+            targets = torch.Tensor(targets)
 
             if self.use_cuda:
                 inputs = inputs.cuda()
