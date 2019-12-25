@@ -201,9 +201,15 @@ class BertModel2Emb(BertPreTrainedModel):
 
     ##!! to avoid a lot of re-structuring, let's define @input_ids=>protein_vector from interaction network
     ## assume @input_ids is batch x 1 x dim, each batch is a protein so it has 1 vector
-
-    # if attention_mask is None:
-    #   attention_mask = torch.ones_like(input_ids) ## probably don't need this very much. if we pass in mask and token_type, which we always do for batch mode
+    #print('inputids')
+    #print(inputids.type)
+    #print(input_ids.shape)
+    #print(input_ids[0][0])
+    #print('inputdna')
+    #print(input_DNA.shape)
+    #print(input_DNA[0][0])
+    if attention_mask is None:
+      attention_mask = torch.ones_like(input_ids) ## probably don't need this very much. if we pass in mask and token_type, which we always do for batch mode (uncommented bc need a mask)
     # # if token_type_ids is None:
     # #   token_type_ids = torch.zeros_like(input_ids)
 
@@ -302,10 +308,7 @@ class TokenClassificationBase (BertPreTrainedModel):
 
     ## COMMENT use @x as indexing-style
     ##!! observe that we pass in @x twice. this is a trick. 
-    print('transformerrr:')
-    print(x[0][0:10])
-    print(x.shape)
-    print(x.type)
+
     outputs = self.bert(None, x, x, position_ids=None, token_type_ids=None) 
 
     sequence_output = outputs[0][:,self.sequence_length::,:] ## last layer. ## last layer outputs is batch_num x len_sent x dim

@@ -454,8 +454,8 @@ class TrainModel(object):
         inputs, targets = self._get_batch()
 
         if self.sampler._samplers["train"]._convert_to_index:
-            inputs = torch.tensor(inputs) # transformer expects Long, not FloatTensor
-            targets = torch.tensor(targets) # so use tensor instead of Tensor to get int
+            inputs = torch.LongTensor(inputs) # transformer expects Long or other int, not FloatTensor
+            targets = torch.LongTensor(targets) 
         else:
             inputs = torch.Tensor(inputs)
             targets = torch.Tensor(targets)
@@ -502,8 +502,8 @@ class TrainModel(object):
 
         for (inputs, targets) in data_in_batches:
             if useLongTensor:
-                inputs = torch.tensor(inputs) # if index format, don't convert to float
-                targets = torch.tensor(targets)
+                inputs = torch.LongTensor(inputs) # if index format, don't convert to float
+                targets = torch.LongTensor(targets)
             else:
                 inputs = torch.Tensor(inputs) # otherwise, FloatTensor
                 targets = torch.Tensor(targets)

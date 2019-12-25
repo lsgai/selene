@@ -79,6 +79,8 @@ class NonStrandSpecific(Module):
         else: # otherwise input shape is (batch,4,1000)
             reverse_input = _flip(_flip(input, 1), 2)
 
+        print('NonStrandSpecificcc')
+        print((input.type, input.shape, input[0][0:10]))
         output = self.model.forward(input)
         output_from_rev = self.model.forward(reverse_input)
 
