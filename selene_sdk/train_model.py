@@ -20,6 +20,7 @@ from .utils import initialize_logger
 from .utils import load_model_from_state_dict
 from .utils import PerformanceMetrics
 
+
 logger = logging.getLogger("selene")
 
 
@@ -200,8 +201,26 @@ class TrainModel(object):
         self.model = model
         self.sampler = data_sampler
         self.criterion = loss_criterion
+
+        optimizer_model_params = self.model.parameters()
+        # if passing in iterable or dict of model params to optimizer
+        if self.sampler._samplers["train"]._convert_to_index:
+        #if use_custom_optim_args: 
+          # note: assume if data is index format, use bert grouped params. 
+          # TODO make model specific or let user specify which params, or determine it based on optimizer class
+          logger.debug('Grouped parameters for optimizer weight decay')
+          no_decay = ['bias', 'LayerNorm.weight']
+          optimizer_model_params = [
+            {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': 1e-6},
+            {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+            ]
+        logger.debug('Optimizer class and kwargs:')
+        logger.debug(optimizer_class)
+        logger.debug(optimizer_kwargs)
+        # note: named_parameters() and other model params might not be accessible after wrapping in DataParallel below
+        
         self.optimizer = optimizer_class(
-            self.model.parameters(), **optimizer_kwargs)
+            optimizer_model_params, **optimizer_kwargs)
 
         self.batch_size = batch_size
         self.max_steps = max_steps
@@ -357,10 +376,13 @@ class TrainModel(object):
         batch_sequences, batch_targets = self.sampler.sample(
             batch_size=self.batch_size)
         t_f_sampling = time()
-        logger.debug(
+
+        # turn off logging time to sample batch
+        '''logger.debug(
             ("[BATCH] Time to sample {0} examples: {1} s.").format(
                  self.batch_size,
                  t_f_sampling - t_i_sampling))
+        '''
         return (batch_sequences, batch_targets)
 
     def train_and_validate(self):
@@ -369,12 +391,17 @@ class TrainModel(object):
 
         """
         min_loss = self._min_loss
+
+        # TODO turned off scheduler
+        logger.debug('Train and validate: No scheduler')
+        '''
         scheduler = ReduceLROnPlateau(
             self.optimizer,
             'min',
             patience=16,
             verbose=True,
             factor=0.8)
+        '''
 
         time_per_step = []
         for step in range(self._start_step, self.max_steps):
@@ -406,8 +433,9 @@ class TrainModel(object):
             # TODO: Should we have some way to report training stats without running validation?
             if step and step % self.nth_step_report_stats == 0:
                 logger.info(("[STEP {0}] average number "
-                             "of steps per second: {1:.1f}").format(
+                             "of steps per second: {1:.2f}").format(
                     step, 1. / np.average(time_per_step)))
+
                 time_per_step = []
                 valid_scores = self.validate()
                 validation_loss = valid_scores["loss"]
@@ -419,7 +447,8 @@ class TrainModel(object):
                     else:
                         to_log.append("NA")
                 self._validation_logger.info("\t".join(to_log))
-                scheduler.step(math.ceil(validation_loss * 1000.0) / 1000.0)
+                # TODO turned off scheduler
+                #scheduler.step(math.ceil(validation_loss * 1000.0) / 1000.0)
 
                 if validation_loss < min_loss:
                     min_loss = validation_loss
@@ -542,8 +571,10 @@ class TrainModel(object):
             the validation set.
 
         """
+        # all samplers are either one-hot or index, doesn't matter which we use to check
+        useLongTensor = self.sampler._samplers["train"]._convert_to_index
         average_loss, all_predictions = self._evaluate_on_data(
-            self._validation_data, useLongTensor=self.model._convert_to_index)
+            self._validation_data, useLongTensor=useLongTensor)
         average_scores = self._validation_metrics.update(all_predictions,
                                                          self._all_validation_targets)
         for name, score in average_scores.items():
@@ -566,8 +597,11 @@ class TrainModel(object):
         """
         if self._test_data is None:
             self.create_test_set()
+
+        # all samplers are either one-hot or index, doesn't matter which we use to check
+        useLongTensor = self.sampler._samplers["test"]._convert_to_index
         average_loss, all_predictions = self._evaluate_on_data(
-            self._test_data, useLongTensor=self.model._convert_to_index)
+            self._test_data, useLongTensor=useLongTensor)
 
         average_scores = self._test_metrics.update(all_predictions,
                                                    self._all_test_targets)

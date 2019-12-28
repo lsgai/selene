@@ -14,7 +14,7 @@ from torch.nn import CrossEntropyLoss, MSELoss
 from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME, BertConfig
 from pytorch_transformers.modeling_bert import *
 from pytorch_transformers.tokenization_bert import BertTokenizer
-
+import pytorch_transformers.optimization
 
 class BertEmbeddingsDNA(nn.Module):
   """Construct the embeddings from word, position and token_type embeddings.
@@ -73,7 +73,8 @@ class BertEmbeddingsLabel(nn.Module):
   """
   def __init__(self, config):
     super(BertEmbeddingsLabel, self).__init__()
-
+    print('TODO BertEmbeddingsLabel config, should log')
+    print(config)
     self.config = config
 
     self.word_embeddings = nn.Embedding(config.label_size, config.hidden_size) ## , padding_idx=0
@@ -322,4 +323,18 @@ def criterion():
 
 def get_optimizer(lr):
   # adam with L2 norm
-  return (torch.optim.Adam, {"lr": lr, "weight_decay": 1e-6})
+  #return (torch.optim.Adam, {"lr": lr, "weight_decay": 1e-6})
+  
+  #https://github.com/datduong/BertGOAnnotation/blob/master/finetune/RunTokenClassifyProtData.py#L313
+  # Prepare optimizer and schedule (linear warmup and decay)
+  #no_decay = ['bias', 'LayerNorm.weight']
+  #optimizer_grouped_parameters = [
+  #  {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': args.weight_decay},
+  #  {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+  #  ]
+  #optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+  return (pytorch_transformers.optimization.AdamW, {"lr":lr, "weight_decay": 1e-6})
+
+  # using deepsea optimizer
+  #return (torch.optim.SGD,
+  #        {"lr": lr, "weight_decay": 1e-6, "momentum": 0.9})

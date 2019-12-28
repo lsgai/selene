@@ -117,7 +117,7 @@ def initialize_model(model_configs, train=True, lr=None):
     model = model_class(**model_configs["class_args"])
     if "non_strand_specific" in model_configs:
         from selene_sdk.utils import NonStrandSpecific
-        input_format = "onehot"
+        input_format = "onehot" # whether model takes in onehot or index data
         if "input_format" in model_configs:
             input_format = model_configs["input_format"]
         model = NonStrandSpecific(
@@ -126,8 +126,16 @@ def initialize_model(model_configs, train=True, lr=None):
     _is_lua_trained_model(model)
     criterion = module.criterion()
     if train and isinstance(lr, float):
-        optim_class, optim_kwargs = module.get_optimizer(lr)
-        return model, criterion, optim_class, optim_kwargs
+        use_custom_optim_args = False # if passing grouped params or subset of params to optimizer
+        if "use_custom_optim_args" in model_configs:
+            use_custom_optim_args = model_configs["use_custom_optim_args"]
+
+        if use_custom_optim_args:
+            optim_class, optim_model_params, optim_kwargs = module.get_optimizer(lr)
+            return model, criterion, optim_class, optim_model_params, optim_kwargs
+        else:
+            optim_class, optim_kwargs = module.get_optimizer(lr)
+            return model, criterion, optim_class, optim_kwargs
     elif train:
         raise ValueError("Learning rate must be specified as a float "
                          "but was {0}".format(lr))
@@ -167,6 +175,8 @@ def execute(operations, configs, output_dir):
     train_model = None
     for op in operations:
         if op == "train":
+            #if "use_custom_optim_args" in configs:
+
             model, loss, optim, optim_kwargs = initialize_model(
                 configs["model"], train=True, lr=configs["lr"])
 
@@ -175,6 +185,7 @@ def execute(operations, configs, output_dir):
                 sampler_info.bind(output_dir=output_dir)
             sampler = instantiate(sampler_info)
             train_model_info = configs["train_model"]
+            # TODO how to pass custom optim args? modify scheduler or modify yml/config?
             train_model_info.bind(model=model,
                                   data_sampler=sampler,
                                   loss_criterion=loss,
@@ -182,6 +193,9 @@ def execute(operations, configs, output_dir):
                                   optimizer_kwargs=optim_kwargs)
             if output_dir is not None:
                 train_model_info.bind(output_dir=output_dir)
+            if "use_custom_optim_args" in configs:
+                if configs["use_custom_optim_args"]:
+                    train_model_info.bind(optimizer_model_params)
 
             train_model = instantiate(train_model_info)
             # TODO: will find a better way to handle this in the future
