@@ -333,8 +333,8 @@ def get_optimizer(lr):
   #  {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
   #  ]
   #optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
-  return (pytorch_transformers.optimization.AdamW, {"lr":lr, "weight_decay": 1e-6})
+  #return (pytorch_transformers.optimization.AdamW, {"lr":lr, "weight_decay": 1e-6})
 
   # using deepsea optimizer
-  #return (torch.optim.SGD,
-  #        {"lr": lr, "weight_decay": 1e-6, "momentum": 0.9})
+  return (torch.optim.SGD,
+          {"lr": lr, "weight_decay": 1e-6, "momentum": 0.9})

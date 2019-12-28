@@ -85,6 +85,9 @@ class TrainModel(object):
     save_checkpoint_every_n_steps : int or None, optional
         Default is 1000. If None, set to the same value as
         `report_stats_every_n_steps`
+    save_checkpoint_every_n_steps : int or None, optional
+        Default is 64000. If None, never save additional checkpoints besides
+        best and those indicated by other checkpoint args.
     save_new_checkpoints_after_n_steps : int or None, optional
         Default is None. The number of steps after which Selene will
         continually save new checkpoint model weights files
@@ -157,6 +160,8 @@ class TrainModel(object):
         The frequency with which to report summary statistics.
     nth_step_save_checkpoint : int
         The frequency with which to save a model checkpoint.
+    nth_step_save_new_checkpoint : int
+        The frequency with which to save a model checkpoint with timestamp.
     use_cuda : bool
         If `True`, use a CUDA-enabled GPU. If `False`, use the CPU.
     data_parallel : bool
@@ -184,6 +189,7 @@ class TrainModel(object):
                  report_stats_every_n_steps,
                  output_dir,
                  save_checkpoint_every_n_steps=1000,
+                 save_new_checkpoint_every_n_steps=64000,
                  save_new_checkpoints_after_n_steps=None,
                  report_gt_feature_n_positives=10,
                  n_validation_samples=None,
@@ -214,9 +220,9 @@ class TrainModel(object):
             {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': 1e-6},
             {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
             ]
-        logger.debug('Optimizer class and kwargs:')
-        logger.debug(optimizer_class)
-        logger.debug(optimizer_kwargs)
+        print('Optimizer class and kwargs:') # TODO not appearing when using logger? need to pass in logger?
+        print(optimizer_class)
+        print(optimizer_kwargs)
         # note: named_parameters() and other model params might not be accessible after wrapping in DataParallel below
         
         self.optimizer = optimizer_class(
@@ -231,7 +237,11 @@ class TrainModel(object):
         else:
             self.nth_step_save_checkpoint = save_checkpoint_every_n_steps
 
+        # use this option to save new checkpoint when you update last checkpoint, after some steps
         self.save_new_checkpoints = save_new_checkpoints_after_n_steps
+
+        # use this option to save new checkpoint periodically
+        self.nth_step_save_new_checkpoint = save_new_checkpoint_every_n_steps
 
         logger.info("Training parameters set: batch size {0}, "
                     "number of steps per 'epoch': {1}, "
@@ -430,6 +440,23 @@ class TrainModel(object):
                     self._save_checkpoint(
                         checkpoint_dict, False)
 
+            # for option to save new checkpoints less frequently than latest checkpoint
+            if self.nth_step_save_new_checkpoint:
+                if step % self.nth_step_save_new_checkpoint == 0:
+                    checkpoint_dict = {
+                        "step": step,
+                        "arch": self.model.__class__.__name__,
+                        "state_dict": self.model.state_dict(),
+                        "min_loss": min_loss,
+                        "optimizer": self.optimizer.state_dict()
+                    }
+                    checkpoint_filename = "checkpoint-step{0}-{1}".format(step, strftime("%m%d%H%M%S"))
+                    self._save_checkpoint(
+                            checkpoint_dict, False, filename=checkpoint_filename)
+                    logger.debug("Saving timestamped checkpoint `{0}.pth.tar`".format(
+                            checkpoint_filename))
+
+
             # TODO: Should we have some way to report training stats without running validation?
             if step and step % self.nth_step_report_stats == 0:
                 logger.info(("[STEP {0}] average number "
@@ -579,6 +606,7 @@ class TrainModel(object):
                                                          self._all_validation_targets)
         for name, score in average_scores.items():
             logger.info("validation {0}: {1}".format(name, score))
+        # TODO add the step to the validation file as a column
 
         average_scores["loss"] = average_loss
         return average_scores
