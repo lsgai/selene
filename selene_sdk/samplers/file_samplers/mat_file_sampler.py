@@ -8,6 +8,7 @@ import scipy.io
 
 from .file_sampler import FileSampler
 
+import itertools
 
 def _load_mat_file(filepath, sequence_key, targets_key=None):
     """
@@ -46,6 +47,27 @@ def _load_mat_file(filepath, sequence_key, targets_key=None):
         return (sequences, targets, mat)
 
 
+
+def convert2kmer(idx_sequences, k, kmerD):
+    '''given sequences of indices 0,1,2,3, return seq of kmer encoded as indices'''
+
+    # make dict of all possible kmers and corresponding index. maxKmerIdx + 1 = padding
+    if k > 8:
+        print('Error: Are you sure you want kmers of len 9+? 4^9 = 260k combinations. \
+               Comment out line if sure')
+        exit(1)
+
+    # preserve original seqlen (pad with max idx at end)
+    n_sequences, orig_seqlen = idx_sequences.shape
+    kmer_sequences = len(kmerD.keys())*np.ones(idx_sequences.shape)
+    # convert to kmer index. sliding window, pad instead of partial kmers
+    idx_sequences = idx_sequences
+    for pos in range(orig_seqlen-k+1):
+        subset = idx_sequences[:,pos:(pos+k)] 
+        kmer_sequences[:,pos] = [kmerD[tuple(kmer)] for kmer in subset]
+    return kmer_sequences
+
+
 class MatFileSampler(FileSampler):
     """
     A sampler for which the dataset is loaded directly from a `*.mat` file.
@@ -69,6 +91,10 @@ class MatFileSampler(FileSampler):
         Default is 1. Specify the alphabet axis.
     targets_batch_axis : int, optional
         Default is 0. Speciy the batch axis.
+    convert_to_index: int, optional
+        If non-zero, convert one hot of nucleotides to index.
+    convert_to_kmer_size: int, optional
+        If non-zero, convert to kmers of that size
 
     Attributes
     ----------
@@ -85,7 +111,8 @@ class MatFileSampler(FileSampler):
                  sequence_batch_axis=0,
                  sequence_alphabet_axis=1,
                  targets_batch_axis=0,
-                 convert_to_index=0):
+                 convert_to_index=0, 
+                 convert_to_kmer_size=0):
         """
         Constructs a new `MatFileSampler` object.
         """
@@ -115,6 +142,19 @@ class MatFileSampler(FileSampler):
             np.random.shuffle(self._sample_indices)
 
         self._convert_to_index = convert_to_index
+        self._convert_to_kmer_size = convert_to_kmer_size
+        if self._convert_to_kmer_size > 0:
+            self._convert_to_index = True  # currently coded so kmer generated from index
+            
+        self._kmerD = None # kmerD[ [ (0,1,2) ] = corresponding index 
+        if self._convert_to_kmer_size > 0:
+            kmerL = list(itertools.product(range(4), repeat=self._convert_to_kmer_size))
+            kmerD = {}
+            for kmer, i in zip(kmerL, range(len(kmerL))):
+                kmerD[kmer] = i
+            self._kmerD = kmerD
+
+
 
     def sample(self, batch_size=1):
         """
@@ -164,19 +204,28 @@ class MatFileSampler(FileSampler):
                             self._seq_alphabet_axis))
 
         if self._convert_to_index:
-            # convert one-hot to index, where last axis is alphabet
+            # convert one-hot to index, where last axis is alphabet (also required for kmer)
             sequences = np.argmax(sequences, axis=-1)
-
+        if self._convert_to_kmer_size:
+            # then convert indices to kmer indices
+            sequences = convert2kmer(sequences, self._convert_to_kmer_size, self._kmerD)
+            #print("mat file sampler: sequences after convert2kmer")
+            #print(sequences[0:2,0:4])
+            #print(sequences.shape)
 
         if self._sample_tgts is not None:
             if self._tgts_batch_axis == 0:
+                #print("mat file sampler: _sample_tgts")
+                #print(self._sample_tgts[0:2,0:4])
+                #print(self._sample_tgts.shape)
                 targets = self._sample_tgts[use_indices, :].astype(float)
             else:
                 targets = self._sample_tgts[:, use_indices].astype(float)
-                targets = np.transpose(
-                    targets, (1, 0))
+                targets = np.transpose( targets, (1, 0) )
             return (sequences, targets)
+            
         return sequences,
+
 
     def get_data(self, batch_size, n_samples=None):
         """

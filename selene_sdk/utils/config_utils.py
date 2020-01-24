@@ -120,8 +120,11 @@ def initialize_model(model_configs, train=True, lr=None):
         input_format = "onehot" # whether model takes in onehot or index data
         if "input_format" in model_configs:
             input_format = model_configs["input_format"]
+        kmer_size = 0 # kmer size, 0 if no kmer
+        if "kmer_size" in model_configs:
+            kmer_size = model_configs["kmer_size"]
         model = NonStrandSpecific(
-            model, mode=model_configs["non_strand_specific"], input_format=input_format)
+            model, mode=model_configs["non_strand_specific"], input_format=input_format, kmer_size=kmer_size)
 
     _is_lua_trained_model(model)
     criterion = module.criterion()

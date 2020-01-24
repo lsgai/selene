@@ -84,7 +84,8 @@ class BertEmbeddingsLabel(nn.Module):
 
     # self.LayerNorm is not snake-cased to stick with TensorFlow model variable name and be able to load
     # any TensorFlow checkpoint file
-    if self.config.scale_label_vec: ## if we freeze, then we will not use any layer norm. let's try using the vectors as they are.
+    if self.config.scale_label_vec: 
+    ## if we freeze, then we will not use any layer norm. let's try using the vectors as they are.
       self.LayerNorm = BertLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 
     ## should always drop to avoid overfit
@@ -109,7 +110,8 @@ class BertEmbeddingsLabel(nn.Module):
     ## should always drop to avoid overfit
     # embeddings = self.dropout(embeddings)
 
-    ##!! COMMENT we always use all the labels, so that we do not need to specify label-indexing. need only call @self.word_embeddings.weight
+    ##!! COMMENT we always use all the labels, so that we do not need to specify label-indexing. 
+    ##           need only call @self.word_embeddings.weight
     embeddings = self.LayerNorm(self.word_embeddings.weight)
     embeddings = embeddings.expand(input_ids.shape[0],-1,-1) ## batch x num_label x dim
     embeddings = self.dropout( embeddings )
@@ -134,7 +136,8 @@ class BertModel2Emb(BertPreTrainedModel):
       of shape ``(batch_size, sequence_length, hidden_size)``:
       Hidden-states of the model at the output of each layer plus the initial embedding outputs.
     **attentions**: (`optional`, returned when ``config.output_attentions=True``)
-      list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
+      list of ``torch.FloatTensor`` (one for each layer) of shape 
+                   ``(batch_size, num_heads, sequence_length, sequence_length)``:
       Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
   Examples::
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
@@ -178,8 +181,10 @@ class BertModel2Emb(BertPreTrainedModel):
     Take care of tying weights embeddings afterwards if the model class has a `tie_weights()` method.
     Arguments:
       new_num_tokens: (`optional`) int:
-        New number of tokens in the embedding matrix. Increasing the size will add newly initialized vectors at the end. Reducing the size will remove vectors from the end.
-        If not provided or None: does nothing and just returns a pointer to the input tokens ``torch.nn.Embeddings`` Module of the model.
+        New number of tokens in the embedding matrix. Increasing the size will add newly initialized 
+          vectors at the end. Reducing the size will remove vectors from the end.
+        If not provided or None: does nothing and just returns a pointer to the input tokens
+         ``torch.nn.Embeddings`` Module of the model.
     Return: ``torch.nn.Embeddings``
       Pointer to the input tokens Embeddings Module of the model
     """
@@ -198,12 +203,14 @@ class BertModel2Emb(BertPreTrainedModel):
 
     return model_embeds
 
-  def forward(self, input_ids, input_DNA, label_index_id, attention_mask=None, token_type_ids=None, position_ids=None, head_mask=None):
+  def forward(self, input_ids, input_DNA, label_index_id, attention_mask=None, token_type_ids=None,
+              position_ids=None, head_mask=None):
     ##!! to avoid a lot of re-structuring, let's define @input_ids=>protein_vector from interaction network
     ## assume @input_ids is batch x 1 x dim, each batch is a protein so it has 1 vector
 
     # if attention_mask is None:
-      # attention_mask = torch.ones_like(input_ids) ## probably don't need this very much. if we pass in mask and token_type, which we always do for batch mode 
+      # attention_mask = torch.ones_like(input_ids) ## probably don't need this very much.
+      # if we pass in mask and token_type, which we always do for batch mode 
     # # if token_type_ids is None:
     # #   token_type_ids = torch.zeros_like(input_ids)
 
@@ -251,21 +258,39 @@ class BertModel2Emb(BertPreTrainedModel):
     # concat into the original embedding
     if self.config.ppi_front:
       ## masking may vary, because some proteins don't have vec emb
-      embedding_output = torch.cat([input_ids,embedding_output,embedding_output_label], dim=1) ## we add protein_vector as variable @input_ids
+      embedding_output = torch.cat([input_ids,embedding_output,embedding_output_label], dim=1) 
+                 ## we add protein_vector as variable @input_ids
     else:
       ## COMMENT
-      embedding_output = torch.cat([embedding_output,embedding_output_label], dim=1) ## @embedding_output is batch x num_aa x dim so append @embedding_output_label to dim=1 (basically adding more words to @embedding_output)
+      embedding_output = torch.cat([embedding_output,embedding_output_label], dim=1) 
+                  ## @embedding_output is batch x num_aa x dim so append @embedding_output_label to dim=1
+                  ## (basically adding more words to @embedding_output)
 
     # @embedding_output is just some type of embedding, the @encoder will apply attention weights
     encoder_outputs = self.encoder(embedding_output,
-                                   attention_mask=None, ## @extended_attention_mask must mask using the entire set of sequence + label input
+                                   attention_mask=None, 
                                    head_mask=head_mask)
+    ## @extended_attention_mask must mask using the entire set of sequence + label input
 
     sequence_output = encoder_outputs[0]
     # pooled_output = self.pooler(sequence_output)
 
     outputs = (sequence_output,) + encoder_outputs[1:]  # add hidden_states and attentions if they are here pooled_output
     return outputs  # sequence_output, pooled_output, (hidden_states), (attentions)
+
+
+class ElementWiseMultiplyLayer(nn.Module):
+  def __init__(self, hidden_size, n_genomic_features):
+    super(ElementWiseMultiplyLayer, self).__init__()
+    self.embedding_dim = hidden_size
+    self.num_labels = n_genomic_features ## about 919 for histone marks
+    self.weightMat = nn.Parameter(torch.Tensor(self.num_labels, self.embedding_dim))  # define the trainable parameter
+    self.bias = nn.Parameter(torch.Tensor(n_genomic_features))
+
+
+  def forward(self, x):
+    # x is [batch, nlabel, hidden]. element-wise mult and sum over hidden
+    return torch.sum(x * self.weightMat, dim = 2)  + self.bias
 
 
 class TokenClassificationBase (BertPreTrainedModel):
@@ -287,12 +312,42 @@ class TokenClassificationBase (BertPreTrainedModel):
     self.bert = BertModel2Emb(self.config)
     self.dropout = nn.Dropout(self.config.hidden_dropout_prob)
 
+    
+    # this classifier uses same weights for all labels
     self.classifier = nn.Sequential(nn.Linear(self.config.hidden_size, 1),
                                     nn.Sigmoid())
+    
+    # this classifier using CLS embedding with different weights for each label
+    #self.classifier2 = nn.Sequential(nn.Linear(self.config.hidden_size, self.num_labels),
+    #                                nn.Sigmoid())
+    
+    # uses label embeddings and learns different weights for each
+    print('TokenClassificationBase: Using classifier1')
+    self.classifier3 = nn.Sequential(
+                        ElementWiseMultiplyLayer(self.config.hidden_size, self.num_labels),
+                        nn.Sigmoid()
+                       )
 
     self.init_weights() # https://github.com/lonePatient/Bert-Multi-Label-Text-Classification/issues/19
 
     self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+  def _init_weights(self, module): 
+    # https://github.com/huggingface/transformers/blob/master/src/transformers/modeling_bert.py#L535
+    """ Initialize the weights, including for our custom layer """
+    if isinstance(module, (nn.Linear, nn.Embedding)):
+      # Slightly different from the TF version which uses truncated_normal for initialization
+      # cf https://github.com/pytorch/pytorch/pull/5617
+      module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+    elif isinstance(module, BertLayerNorm):
+      module.bias.data.zero_()
+      module.weight.data.fill_(1.0)
+    elif isinstance(module, ElementWiseMultiplyLayer):
+      module.weightMat.data.normal_(mean=0.0, std=self.config.initializer_range)
+      module.bias.data.zero_()
+    if isinstance(module, nn.Linear) and module.bias is not None:
+      module.bias.data.zero_()
 
   def forward(self, x):
 
@@ -310,11 +365,19 @@ class TokenClassificationBase (BertPreTrainedModel):
 
     outputs = self.bert(None, x, x, position_ids=None, token_type_ids=None) 
 
-    sequence_output = outputs[0][:,self.sequence_length::,:] ## last layer. ## last layer outputs is batch_num x len_sent x dim
+    sequence_output = outputs[0][:,self.sequence_length::,:] ## last layer. 
+      ## last layer outputs is batch_num x num_label x hidden_dim
     sequence_output = self.dropout(sequence_output)
-
     logits = self.classifier(sequence_output).squeeze(2) ## want batch x len x 1 --> batch x num_label
+    #logits = self.classifier3(sequence_output) ## want batch x len x 1 --> batch x num_label
 
+
+    #cls_output = outputs[0][:,0,:]
+    #cls_output = self.dropout(cls_output)
+    #print('TODO cls', cls_output.shape)
+    #logits = self.classifier2(cls_output)
+    #print('TODO logits', logits.shape)
+    #print(logits.shape)
     return logits # batch x num_label
 
 
@@ -327,14 +390,17 @@ def get_optimizer(lr):
   
   #https://github.com/datduong/BertGOAnnotation/blob/master/finetune/RunTokenClassifyProtData.py#L313
   # Prepare optimizer and schedule (linear warmup and decay)
-  #no_decay = ['bias', 'LayerNorm.weight']
-  #optimizer_grouped_parameters = [
-  #  {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': args.weight_decay},
-  #  {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
-  #  ]
-  #optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
-  #return (pytorch_transformers.optimization.AdamW, {"lr":lr, "weight_decay": 1e-6})
+  '''
+  no_decay = ['bias', 'LayerNorm.weight']
+  optimizer_grouped_parameters = [
+    {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)], 
+                'weight_decay': args.weight_decay},
+    {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+    ]
+  optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+  '''
+  return (pytorch_transformers.optimization.AdamW, {"lr":lr, "weight_decay": 1e-6})
 
   # using deepsea optimizer
-  return (torch.optim.SGD,
-          {"lr": lr, "weight_decay": 1e-6, "momentum": 0.9})
+  #return (torch.optim.SGD,
+  #        {"lr": lr, "weight_decay": 1e-6, "momentum": 0.9})

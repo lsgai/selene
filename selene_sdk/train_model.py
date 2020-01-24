@@ -199,6 +199,7 @@ class TrainModel(object):
                  data_parallel=False,
                  logging_verbosity=2,
                  checkpoint_resume=None,
+                 use_fp16=False,
                  metrics=dict(roc_auc=roc_auc_score,
                               average_precision=average_precision_score)):
         """
@@ -252,8 +253,19 @@ class TrainModel(object):
 
         torch.set_num_threads(cpu_n_threads)
 
+        self.use_fp16 = use_fp16
         self.use_cuda = use_cuda
         self.data_parallel = data_parallel
+
+        if self.use_fp16:
+            try:
+                from apex import amp
+            except ImportError:
+                raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
+            self.model, self.optimizer = amp.initialize(model, optimizer, opt_level=args.fp16_opt_level)
+            logger.debug("Set model and optimizer to use fp16")
+        #see https://github.com/huggingface/transformers/blob/master/examples/run_lm_finetuning.py#L231
+        # parallel and distributed training should come after fp16
 
         if self.data_parallel:
             self.model = nn.DataParallel(model)
@@ -404,14 +416,14 @@ class TrainModel(object):
 
         # TODO turned off scheduler
         logger.debug('Train and validate: No scheduler')
-        '''
-        scheduler = ReduceLROnPlateau(
-            self.optimizer,
-            'min',
-            patience=16,
-            verbose=True,
-            factor=0.8)
-        '''
+        #logger.debug('Train and validate: ReduceLROnPlateau')
+        #scheduler = ReduceLROnPlateau(
+        #    self.optimizer,
+        #    'min',
+        #    patience=16,
+        #    verbose=True,
+        #    factor=0.8)
+        
 
         time_per_step = []
         for step in range(self._start_step, self.max_steps):
@@ -474,9 +486,11 @@ class TrainModel(object):
                     else:
                         to_log.append("NA")
                 self._validation_logger.info("\t".join(to_log))
-                # TODO turned off scheduler
+                # TODO comment this out to turn off scheduler
+                # TODO print effective lr or optimizer state somehow
+                # btw why do they round when checking whether validation changed? and why only 3 digit originally?
                 #scheduler.step(math.ceil(validation_loss * 1000.0) / 1000.0)
-
+                #scheduler.step(math.ceil(validation_loss * 100000.0) / 100000.0)
                 if validation_loss < min_loss:
                     min_loss = validation_loss
                     self._save_checkpoint({
@@ -559,6 +573,7 @@ class TrainModel(object):
         all_predictions = []
 
         for (inputs, targets) in data_in_batches:
+            #print("train_model: \n", inputs[0:5,0:5])
             if useLongTensor:
                 inputs = torch.LongTensor(inputs) # if index format, don't convert to float
             else:
